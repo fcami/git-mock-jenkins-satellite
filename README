@@ -1,0 +1,65 @@
+
+== Why
+
+Build rpms in a reproductible, automated manner.
+Note: this is a quick hack. If you need a real RPM buildsystem, look at Fedora's koji.
+
+
+== Tools
+
+* Satellite 5 (Spacewalk) channels as environments
+* git for SCM (spec and sources)
+* mock to build srpms/rpms
+* Jenkins as user interface and continuous integration engine
+
+
+== Tooling
+
+* mock doesn't know how to use a Satellite channel as repository.
+ solution: dump-channels.py dumps a channel into a directory.
+           createrepo transforms that directory into a repository.
+* jenkins doesn't know how to use mock and rpm
+ solution: develop simple frontends in shell and expect.
+
+
+== New Environment howto
+
+* Create the environment in Satellite: this means cloning the required channels.
+* Dump all the channels to the Jenkins VM in /var/www/html/repos via dump-channels.py
+* Create channel metadata using createrepo
+* Create the environment in mock: create a new /etc/mock/ENV.cfg file:
+** using the base channel's name as filename
+** based on a existing configuration (see mock configuration directory)
+... and that's it!
+
+
+== New RPM howto
+
+* Create a git repository:
+** git repo name == rpm name (example: nvidia-detect.git)
+** with a branch per environment (ex: mycorp-rhel-x86_64-workstation-6)
+** within each branch, a spec file (nvidia-detect.spec) and a sources/ directory containing the sources
+ NB: yes, that's a git repository PER rpm to build, with as many branches as there are environments to build in.
+ NB2: yes, I know, storing tarballs in a git repository is evil. I accept patches esp. wrt git-annex.
+
+* Create as many Jenkins projects as there are environments to build that rpm in.
+** name == rpm_nameZenvironment
+ NB: the Z should be changed to a better pattern.
+** source code management == gitolite3@git_server:git_repo
+ + branches to build = refs/heads/ENV
+  example: refs/heads/mycorp-rhel-x86_64-workstation-6
+** Build Triggers = Poll SCM, Schedule = H/5 * * * 1-5
+  NB: will poll the SCM every 5 minutes from Monday to Friday.
+** Build steps are all of type "Execute shell"
+  bash -ex /usr/libexec/jenkins-rpm-builder/jenkins-mock-srpm.sh /var/lib/jenkins/workspace/${JOB_NAME}
+  bash -ex /usr/libexec/jenkins-rpm-builder/jenkins-mock-rpm.sh /var/lib/jenkins/workspace/${JOB_NAME}
+  bash -ex /usr/libexec/jenkins-rpm-builder/jenkins-rpmsign.sh /var/lib/jenkins/workspace/${JOB_NAME}
+** Artefact archiving: "output/*/*rpm"
+
+
+== TODO
+
+* switch Z to a better pattern
+* publish the results (rpms) to an external repository (via a build step or via a Jenkins plugin for artefact publication)
+* use a git-annex based lookaside cache for tar/gz - these should not be stored in git.
+
