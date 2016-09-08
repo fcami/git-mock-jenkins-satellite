@@ -62,4 +62,7 @@ Note: this is a quick hack. If you need a real RPM buildsystem, look at Fedora's
 * switch Z to a better pattern
 * publish the results (rpms) to an external repository (via a build step or via a Jenkins plugin for artefact publication)
 * use a git-annex based lookaside cache for tar/gz - these should not be stored in git.
+* detect if the previous build has the same NVR and either:
+** fail
+** update release of rpm version (possibly using http://linux.die.net/man/8/tito)
 
